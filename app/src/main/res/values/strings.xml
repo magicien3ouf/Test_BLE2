@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Test_BLE</string>
+    <string name="test_TextView_sentence">J’ai fait une application.</string>
 </resources>
