@@ -12,13 +12,16 @@ import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.os.Bundle;
 import android.util.Log;
+import android.widget.EditText;
 import android.widget.TextView;
+import android.view.View;
 
 import java.util.Set;
 
 public class MainActivity extends AppCompatActivity {
     private final static String TAG = MainActivity.class.getSimpleName();
 
+    public static final String EXTRA_MESSAGE = "com.example.test_ble.MESSAGE";    //text displayed when the button is clicked
 
     private final static int REQUEST_ENABLE_BT = 1;
 
@@ -131,6 +134,18 @@ public class MainActivity extends AppCompatActivity {
         }
 
     }
+
+    /** Called when the user taps the Send button */
+    public void sendMessage(View view) {
+        // Do something in response to button
+        Intent intent = new Intent(this, DisplayMessageActivity.class);
+        EditText editText = (EditText) findViewById(R.id.editText);
+        String message = editText.getText().toString();
+        intent.putExtra(EXTRA_MESSAGE, message);
+        startActivity(intent);
+
+    }
+
 }
 
 
