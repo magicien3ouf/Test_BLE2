@@ -11,6 +11,7 @@ import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.Intent;
 import android.os.Bundle;
+import android.os.Handler;
 import android.util.Log;
 import android.widget.EditText;
 import android.widget.TextView;
@@ -22,8 +23,10 @@ public class MainActivity extends AppCompatActivity {
     private final static String TAG = MainActivity.class.getSimpleName();
 
     public static final String EXTRA_MESSAGE = "com.example.test_ble.MESSAGE";    //text displayed when the button is clicked
+    public static final String EXTRA_COUNT = "com.example.test_ble.COUNT";
 
     private final static int REQUEST_ENABLE_BT = 1;
+
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
@@ -44,7 +47,20 @@ public class MainActivity extends AppCompatActivity {
             "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
     public final static String EXTRA_DATA =
             "com.example.bluetooth.le.EXTRA_DATA";
+    public int count = 0;
 
+    private Handler handler;
+
+    private Runnable runnable = new Runnable() {
+        @Override
+        public void run() {
+            /* do what you need to do */
+            count += 1;
+            /* and here comes the "trick" */
+            Log.i(TAG, "count : " + count);
+            handler.postDelayed(this, 100);
+        }
+    };
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
@@ -55,8 +71,11 @@ public class MainActivity extends AppCompatActivity {
                 // TODO
                 Log.i(TAG, "Connected to GATT server.");
                 // Attempts to discover services after successful connection.
+                Log.i(TAG, "Test service discovery:" +
+                        mBluetoothGatt.discoverServices());                 //renvoie true si les services sont bient découverts
+
                 Log.i(TAG, "Attempting to start service discovery:" +
-                        mBluetoothGatt.discoverServices());
+                        mBluetoothGatt.getServices());
 
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 intentAction = ACTION_GATT_DISCONNECTED;
@@ -113,7 +132,7 @@ public class MainActivity extends AppCompatActivity {
             // There are paired devices. Get the name and address of each paired device.
             for (BluetoothDevice device : pairedDevices) {
                 Log.w(TAG, "Found device: " + device.getName());
-                if (device.getName().equals("Meat X1")) {
+                if (device.getAddress().equals("00:A0:50:B7:8A:A5")) {
                     mDevice = device;
                     break;
                 }
@@ -133,6 +152,8 @@ public class MainActivity extends AppCompatActivity {
 
         }
 
+        handler = new Handler();
+        runnable.run();
     }
 
     /** Called when the user taps the Send button */
@@ -142,8 +163,14 @@ public class MainActivity extends AppCompatActivity {
         EditText editText = (EditText) findViewById(R.id.editText);
         String message = editText.getText().toString();
         intent.putExtra(EXTRA_MESSAGE, message);
+        intent.putExtra(EXTRA_COUNT, count);
         startActivity(intent);
+    }
 
+    @Override
+    public void onDestroy() {
+        super.onDestroy();
+        handler.removeCallbacks(runnable);
     }
 
 }
