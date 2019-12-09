@@ -7,8 +7,12 @@ import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
+import android.bluetooth.le.BluetoothLeScanner;
+import android.bluetooth.le.ScanCallback;
+import android.bluetooth.le.ScanResult;
 import android.content.Intent;
 import android.os.Bundle;
 import android.os.Handler;
@@ -18,6 +22,7 @@ import android.widget.TextView;
 import android.view.View;
 
 import java.util.Set;
+import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
     private final static String TAG = MainActivity.class.getSimpleName();
@@ -31,7 +36,9 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
     private String mBluetoothDeviceAddress;
-    private BluetoothGatt mBluetoothGatt;
+    private BluetoothGatt mBluetoothGatt = null;
+    private BluetoothDevice mDevice = null;
+    private BluetoothLeScanner mBLEScanner = null;
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
@@ -47,6 +54,11 @@ public class MainActivity extends AppCompatActivity {
             "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
     public final static String EXTRA_DATA =
             "com.example.bluetooth.le.EXTRA_DATA";
+
+    public final static UUID UUID_BLE_MIDI_SERVICE = UUID.fromString("03B80E5A-EDE8-4B33-A751-6CE34EC4C700");
+    public final static UUID UUID_BLE_MIDI_CHARAC = UUID.fromString("7772E5DB-3868-4112-A1A9-F2669D106BF3");
+
+
     public int count = 0;
 
     private Handler handler;
@@ -56,8 +68,9 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             /* do what you need to do */
             count += 1;
+            writeCharacteristic();
             /* and here comes the "trick" */
-            Log.i(TAG, "count : " + count);
+            //Log.i(TAG, "count : " + count);
             handler.postDelayed(this, 100);
         }
     };
@@ -72,7 +85,7 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "Connected to GATT server.");
                 // Attempts to discover services after successful connection.
                 Log.i(TAG, "Test service discovery:" +
-                        mBluetoothGatt.discoverServices());                 //renvoie true si les services sont bient découverts
+                        mBluetoothGatt.discoverServices());                 //renvoie true si les services sont bien découverts
 
                 Log.i(TAG, "Attempting to start service discovery:" +
                         mBluetoothGatt.getServices());
@@ -114,7 +127,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
         BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
         if (bluetoothAdapter == null) {
             // Device doesn't support Bluetooth
@@ -125,6 +137,11 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
+        mBLEScanner = bluetoothAdapter.getBluetoothLeScanner();
+
+        mBLEScanner.startScan(scanCallback);
+
+/*
         Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
 
         BluetoothDevice mDevice = null;
@@ -137,21 +154,7 @@ public class MainActivity extends AppCompatActivity {
                     break;
                 }
             }
-        }
-
-        if (mDevice == null) {
-            // TODO
-        } else {
-            mBluetoothGatt = mDevice.connectGatt(this, false, mGattCallback);
-            String deviceName = mDevice.getName();
-            String deviceHardwareAddress = mDevice.getAddress(); // MAC address
-            final TextView helloTextView = (TextView) findViewById(R.id.text_view_id);     //link to the eponymous TextView defined in activity_main.xml
-            helloTextView.setText("Name of the connected device : " + deviceName +         //name and address of the last paired device very useful I know
-                    "\nMAC address of the connected device : \n"
-                    + deviceHardwareAddress);
-
-        }
-
+        }*/
         handler = new Handler();
         runnable.run();
     }
@@ -173,7 +176,62 @@ public class MainActivity extends AppCompatActivity {
         handler.removeCallbacks(runnable);
     }
 
+    private ScanCallback scanCallback = new ScanCallback() { //TODO add log infos
+        @Override
+        public void onScanResult(int callbackType, ScanResult scanResult) {
+            BluetoothDevice device = scanResult.getDevice();
+            Log.e(TAG, "Scanned device " + device.getName() + "!");
+            if (device.getName() == "psocmidi") {
+                mBLEScanner.stopScan(scanCallback);
+                connectDevice(device);
+            }
+        }
+    };
+
+    public void connectDevice(BluetoothDevice device) {
+        if (device != null) {
+            mDevice = device;
+        }
+        if (mDevice == null) {
+            return;
+        }
+        // connect
+        mBluetoothGatt = mDevice.connectGatt(this, false, mGattCallback);
+        String deviceName = mDevice.getName();
+        String deviceHardwareAddress = mDevice.getAddress(); // MAC address
+        final TextView helloTextView = (TextView) findViewById(R.id.text_view_id);     //link to the eponymous TextView defined in activity_main.xml
+        helloTextView.setText("Name of the connected device : " + deviceName +         //name and address of the last paired device very useful I know
+                "\nMAC address of the connected device : \n"
+                + deviceHardwareAddress);
+    }
+
+    public boolean writeCharacteristic(){
+
+        //check mBluetoothGatt is available
+        if (mBluetoothGatt == null) {
+            //Log.e(TAG, "lost connection");
+            return false;
+        }
+        BluetoothGattService Service = mBluetoothGatt.getService(UUID_BLE_MIDI_SERVICE);
+        if (Service == null) {
+            Log.e(TAG, "service not found!");
+            return false;
+        }
+        BluetoothGattCharacteristic charac = Service
+                .getCharacteristic(UUID_BLE_MIDI_CHARAC);
+        if (charac == null) {
+            Log.e(TAG, "char not found!");
+            return false;
+        }
+
+        byte[] value = new byte[1];
+        value[0] = (byte) (21 & 0xFF);      //byte we want to send according to MIDI protocol (just to test, to change afterwards)
+        charac.setValue(value);
+        boolean status = mBluetoothGatt.writeCharacteristic(charac);
+        return status;
+    }
 }
+
 
 
 
