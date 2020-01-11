@@ -2,6 +2,8 @@ package com.example.test_ble;
 
 import androidx.appcompat.app.AppCompatActivity;
 
+import android.Manifest;
+import android.app.AlertDialog;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
@@ -13,8 +15,10 @@ import android.bluetooth.BluetoothProfile;
 import android.bluetooth.le.BluetoothLeScanner;
 import android.bluetooth.le.ScanCallback;
 import android.bluetooth.le.ScanResult;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
@@ -24,6 +28,7 @@ import android.widget.TextView;
 import android.view.View;
 import android.widget.Toast;
 
+import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 
@@ -46,6 +51,8 @@ public class MainActivity extends AppCompatActivity {
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
     private static final int STATE_CONNECTED = 2;
+    //This is required for Android 6.0 (Marshmallow)
+    private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
 
     public final static String ACTION_GATT_CONNECTED =
             "com.example.bluetooth.le.ACTION_GATT_CONNECTED";
@@ -61,8 +68,8 @@ public class MainActivity extends AppCompatActivity {
     public final static UUID UUID_BLE_MIDI_SERVICE = UUID.fromString("03B80E5A-EDE8-4B33-A751-6CE34EC4C700");
     public final static UUID UUID_BLE_MIDI_CHARAC = UUID.fromString("7772E5DB-3868-4112-A1A9-F2669D106BF3");
 
-
     public int count = 0;
+    public boolean isConnected = false;
 
     private Handler handler;
 
@@ -72,6 +79,9 @@ public class MainActivity extends AppCompatActivity {
             /* do what you need to do */
             count += 1;
             writeCharacteristic();
+
+            TextView textCount = findViewById(R.id.textCount);
+            textCount.setText(Integer.toString(count));
             /* and here comes the "trick" */
             //Log.i(TAG, "count : " + count);
             handler.postDelayed(this, 100);
@@ -130,6 +140,24 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+
+
+        //This section required for Android 6.0 (Marshmallow)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            // Android M Permission check 
+            if (this.checkSelfPermission(Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                builder.setTitle("This app needs location access ");
+                builder.setMessage("Please grant location access so this app can detect devices.");
+                builder.setPositiveButton(android.R.string.ok, null);
+                builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                    public void onDismiss(DialogInterface dialog) {
+                        requestPermissions(new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_COARSE_LOCATION);
+                    }
+                });
+                builder.show();
+            }
+        } //End of section for Android 6.0 (Marshmallow)
 
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             Toast.makeText(this, "BLE Not Supported",
@@ -197,9 +225,14 @@ public class MainActivity extends AppCompatActivity {
         public void onScanResult(int callbackType, ScanResult scanResult) {
             BluetoothDevice device = scanResult.getDevice();
             Log.e(TAG, "Scanned device " + device.getName() + "!");
-            if (device.getName() == "psocmidi") {
+            if(device.getName()==null){
+                return;
+            }
+            else if ( device.getName().compareTo("psocmidi_alex") == 0 ) {
+                Log.w(TAG, "entering inside");
                 mBLEScanner.stopScan(scanCallback);
                 connectDevice(device);
+                Log.w(TAG, "we are trying to connect");
             }
         }
         @Override
@@ -212,6 +245,8 @@ public class MainActivity extends AppCompatActivity {
         if (device != null) {
             Log.i(TAG, "Device = " + device);
             mDevice = device;
+            isConnected = true;
+            Log.w(TAG, "we are connected !!!!!!!!!!");
         }
         if (mDevice == null) {
             return;
@@ -246,12 +281,26 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
 
-        byte[] value = new byte[1];
-        value[0] = (byte) (21 & 0xFF);      //byte we want to send according to MIDI protocol (just to test, to change afterwards)
+        byte[] value = new byte[4];
+        int valueHex = 0xFFFFFFFF;      //byte we want to send according to MIDI protocol (just to test, to change afterwards)
+        value[0] = (byte) (valueHex & 0xFF);
+        value[1] = (byte) ((valueHex >> 8) & 0xFF);
+        value[2] = (byte) ((valueHex >> 16) & 0xFF);
+        value[3] = (byte) ((valueHex >> 24) & 0xFF);
+//        value[4] = (byte) ((valueHex >> 32) & 0xFF);
+//        value[5] = (byte) ((valueHex >> 40) & 0xFF);
+
         charac.setValue(value);
         boolean status = mBluetoothGatt.writeCharacteristic(charac);
         return status;
     }
+
+
+
+//    public void updateTextView(textView, String toThis) {
+//        TextView textView = (TextView) findViewById(R.id.textView);
+//        textView.setText(toThis);
+//    }
 }
 
 
