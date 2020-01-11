@@ -35,7 +35,6 @@ import java.util.UUID;
 public class MainActivity extends AppCompatActivity {
     private final static String TAG = MainActivity.class.getSimpleName();
 
-    public static final String EXTRA_MESSAGE = "com.example.test_ble.MESSAGE";    //text displayed when the button is clicked
     public static final String EXTRA_COUNT = "com.example.test_ble.COUNT";
 
     private final static int REQUEST_ENABLE_BT = 1;
@@ -184,35 +183,10 @@ public class MainActivity extends AppCompatActivity {
 
         mBLEScanner.startScan(scanCallback);
         Log.i(TAG, "Scan started");
-
-/*
-        Set<BluetoothDevice> pairedDevices = bluetoothAdapter.getBondedDevices();
-
-        BluetoothDevice mDevice = null;
-        if (pairedDevices.size() > 0) {
-            // There are paired devices. Get the name and address of each paired device.
-            for (BluetoothDevice device : pairedDevices) {
-                Log.w(TAG, "Found device: " + device.getName());
-                if (device.getAddress().equals("00:A0:50:B7:8A:A5")) {
-                    mDevice = device;
-                    break;
-                }
-            }
-        }*/
         handler = new Handler();
         runnable.run();
     }
 
-    /** Called when the user taps the Send button */
-    public void sendMessage(View view) {
-        // Do something in response to button
-        Intent intent = new Intent(this, DisplayMessageActivity.class);
-        EditText editText = (EditText) findViewById(R.id.editText);
-        String message = editText.getText().toString();
-        intent.putExtra(EXTRA_MESSAGE, message);
-        intent.putExtra(EXTRA_COUNT, count);
-        startActivity(intent);
-    }
 
     @Override
     public void onDestroy() {
