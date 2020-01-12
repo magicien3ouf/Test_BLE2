@@ -23,13 +23,10 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
-import android.widget.EditText;
 import android.widget.TextView;
-import android.view.View;
 import android.widget.Toast;
 
-import java.util.Objects;
-import java.util.Set;
+import java.util.Base64;
 import java.util.UUID;
 
 public class MainActivity extends AppCompatActivity {
@@ -39,6 +36,7 @@ public class MainActivity extends AppCompatActivity {
 
     private final static int REQUEST_ENABLE_BT = 1;
 
+    // Bluetooth objects that we need to interact with
 
     private BluetoothManager mBluetoothManager;
     private BluetoothAdapter mBluetoothAdapter;
@@ -46,6 +44,20 @@ public class MainActivity extends AppCompatActivity {
     private BluetoothGatt mBluetoothGatt = null;
     private BluetoothDevice mDevice = null;
     private BluetoothLeScanner mBLEScanner = null;
+
+    // Bluetooth characteristics that we need to read/write
+
+    private static BluetoothGattCharacteristic mCurrentCharacteristic;
+
+    // UUIDs for the service and characteristics that the custom CapSenseLED service uses
+
+    public final static UUID UUID_BLE_MIDI_SERVICE = UUID.fromString("03B80E5A-EDE8-4B33-A751-6CE34EC4C700");
+    public final static UUID UUID_BLE_MIDI_CHARAC = UUID.fromString("7772E5DB-3868-4112-A1A9-F2669D106BF3");
+
+    public final static UUID UUID_BLE_INFO_SERVICE = UUID.fromString("beabbac4-c45c-4795-b4d7-f929e6f2c16e");
+    public final static UUID currentCharacteristicUUID = UUID.fromString("1028fd4e-e8de-11e9-81b4-2a2ae2dbcce4");
+
+    // Actions used during broadcasts to the main activity
 
     private static final int STATE_DISCONNECTED = 0;
     private static final int STATE_CONNECTING = 1;
@@ -63,9 +75,8 @@ public class MainActivity extends AppCompatActivity {
             "com.example.bluetooth.le.ACTION_DATA_AVAILABLE";
     public final static String EXTRA_DATA =
             "com.example.bluetooth.le.EXTRA_DATA";
-
-    public final static UUID UUID_BLE_MIDI_SERVICE = UUID.fromString("03B80E5A-EDE8-4B33-A751-6CE34EC4C700");
-    public final static UUID UUID_BLE_MIDI_CHARAC = UUID.fromString("7772E5DB-3868-4112-A1A9-F2669D106BF3");
+    public final static String ACTION_DATA_RECEIVED =
+            "com.example.bluetooth.le.ACTION_DATA_RECEIVED";
 
     public int count = 0;
     public boolean isConnected = false;
@@ -80,12 +91,24 @@ public class MainActivity extends AppCompatActivity {
             writeCharacteristic();
 
             TextView textCount = findViewById(R.id.textCount);
-            textCount.setText(Integer.toString(count));
+            textCount.setText("count "+Integer.toString(count));
+            readCurrentCharacteristic();
             /* and here comes the "trick" */
             //Log.i(TAG, "count : " + count);
-            handler.postDelayed(this, 100);
+            handler.postDelayed(this, 1000);
         }
     };
+
+    /**
+     * This method is used to read the state of the current from the device
+     */
+    public void readCurrentCharacteristic() {
+        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
+            Log.w(TAG, "BluetoothAdapter not initialized, Adapter = " + mBluetoothAdapter +" | Gatt = " + mBluetoothGatt);
+            return;
+        }
+        mBluetoothGatt.readCharacteristic(mCurrentCharacteristic);
+    }
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
@@ -99,8 +122,10 @@ public class MainActivity extends AppCompatActivity {
                 Log.i(TAG, "Test service discovery:" +
                         mBluetoothGatt.discoverServices());                 //renvoie true si les services sont bien découverts
 
+                BluetoothGattService mService = gatt.getService(UUID_BLE_INFO_SERVICE);
+
                 Log.i(TAG, "Attempting to start service discovery:" +
-                        mBluetoothGatt.getServices());
+                       mService);
 
             } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
                 intentAction = ACTION_GATT_DISCONNECTED;
@@ -112,7 +137,12 @@ public class MainActivity extends AppCompatActivity {
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                // TODO
+                BluetoothGattService mService = gatt.getService(UUID_BLE_INFO_SERVICE);
+                /* Get characteristics from our desired service */
+                mCurrentCharacteristic  = mService.getCharacteristic(currentCharacteristicUUID);
+
+                // Broadcast that service/characteristic/descriptor discovery is done
+                broadcastUpdate(ACTION_GATT_SERVICES_DISCOVERED);   // maybe to delete
             } else {
                 Log.w(TAG, "onServicesDiscovered received: " + status);
             }
@@ -122,8 +152,25 @@ public class MainActivity extends AppCompatActivity {
         public void onCharacteristicRead(BluetoothGatt gatt,
                                          BluetoothGattCharacteristic characteristic,
                                          int status) {
+            Log.w(TAG, "onCharacteristicRead launched");
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                // TODO
+                Log.i(TAG, "onServicesDiscovered launched");
+                // Verify that the read was the LED state
+                String uuid = characteristic.getUuid().toString();
+                // In this case, the only read the app does is the LED state.
+                // If the application had additional characteristics to read we could
+                // use a switch statement here to operate on each one separately.
+                if (uuid.equalsIgnoreCase(currentCharacteristicUUID.toString())) {
+                    final byte[] data = characteristic.getValue();
+                    String s = new String(data);
+                    TextView textCurrent_mA = findViewById(R.id.textCurrent_mA);
+                    textCurrent_mA.setText("Current : " + s + "mA");
+                }
+                // Notify the main activity that new data is available
+                broadcastUpdate(ACTION_DATA_RECEIVED);
+            }
+            else{
+                Log.i(TAG, "onCharacteristicRead received: " + status);
             }
         }
 
@@ -132,6 +179,15 @@ public class MainActivity extends AppCompatActivity {
                                             BluetoothGattCharacteristic characteristic) {
             // TODO
         }
+        /**
+         * Sends a broadcast to the listener in the main activity.
+         *
+         * @param action The type of action that occurred.
+         */
+        private void broadcastUpdate(final String action) {
+            final Intent intent = new Intent(action);
+            sendBroadcast(intent);
+        }
     };
 
 
@@ -139,7 +195,6 @@ public class MainActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-
 
         //This section required for Android 6.0 (Marshmallow)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
@@ -229,7 +284,7 @@ public class MainActivity extends AppCompatActivity {
         mBluetoothGatt = mDevice.connectGatt(this, false, mGattCallback);
         String deviceName = mDevice.getName();
         String deviceHardwareAddress = mDevice.getAddress(); // MAC address
-        final TextView helloTextView = (TextView) findViewById(R.id.text_view_id);     //link to the eponymous TextView defined in activity_main.xml
+        final TextView helloTextView = (TextView) findViewById(R.id.Connexion_infos);     //link to the eponymous TextView defined in activity_main.xml
         helloTextView.setText("Name of the connected device : " + deviceName +         //name and address of the last paired device very useful I know
                 "\nMAC address of the connected device : \n"
                 + deviceHardwareAddress);
@@ -268,6 +323,7 @@ public class MainActivity extends AppCompatActivity {
         boolean status = mBluetoothGatt.writeCharacteristic(charac);
         return status;
     }
+
 
 
 
