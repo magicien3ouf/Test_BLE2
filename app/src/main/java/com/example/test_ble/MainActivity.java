@@ -56,6 +56,10 @@ public class MainActivity extends AppCompatActivity {
 
     public final static UUID UUID_BLE_INFO_SERVICE = UUID.fromString("beabbac4-c45c-4795-b4d7-f929e6f2c16e");
     public final static UUID currentCharacteristicUUID = UUID.fromString("1028fd4e-e8de-11e9-81b4-2a2ae2dbcce4");
+    public final static UUID tensionCharacteristicUUID = UUID.fromString("1028ff9c-e8de-11e9-81b4-2a2ae2dbcce4");
+    public final static UUID tempCharacteristicUUID = UUID.fromString("102900f0-e8de-11e9-81b4-2a2ae2dbcce4");
+    public final static UUID powerCharacteristicUUID = UUID.fromString("10290230-e8de-11e9-81b4-2a2ae2dbcce4");
+    public final static UUID freqCharacteristicUUID = UUID.fromString("1029037a-e8de-11e9-81b4-2a2ae2dbcce4");
 
     // Actions used during broadcasts to the main activity
 
@@ -91,24 +95,17 @@ public class MainActivity extends AppCompatActivity {
             writeCharacteristic();
 
             TextView textCount = findViewById(R.id.textCount);
-            textCount.setText("count "+Integer.toString(count));
-            readCurrentCharacteristic();
+            textCount.setText(getString(R.string.textCount, count));
+            readCharacteristic(currentCharacteristicUUID);
+            readCharacteristic(tensionCharacteristicUUID);
+            readCharacteristic(tempCharacteristicUUID);
+            readCharacteristic(powerCharacteristicUUID);
+            readCharacteristic(freqCharacteristicUUID);
             /* and here comes the "trick" */
             //Log.i(TAG, "count : " + count);
-            handler.postDelayed(this, 1000);
+            handler.postDelayed(this, 100);
         }
     };
-
-    /**
-     * This method is used to read the state of the current from the device
-     */
-    public void readCurrentCharacteristic() {
-        if (mBluetoothAdapter == null || mBluetoothGatt == null) {
-            Log.w(TAG, "BluetoothAdapter not initialized, Adapter = " + mBluetoothAdapter +" | Gatt = " + mBluetoothGatt);
-            return;
-        }
-        mBluetoothGatt.readCharacteristic(mCurrentCharacteristic);
-    }
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
@@ -154,17 +151,43 @@ public class MainActivity extends AppCompatActivity {
                                          int status) {
             Log.w(TAG, "onCharacteristicRead launched");
             if (status == BluetoothGatt.GATT_SUCCESS) {
-                Log.i(TAG, "onServicesDiscovered launched");
-                // Verify that the read was the LED state
+                Log.i(TAG, "onServicesDiscovered launched with Gatt = " + gatt + " | char = " + characteristic.getUuid().toString() + " | status = " +status);
                 String uuid = characteristic.getUuid().toString();
-                // In this case, the only read the app does is the LED state.
-                // If the application had additional characteristics to read we could
-                // use a switch statement here to operate on each one separately.
+
                 if (uuid.equalsIgnoreCase(currentCharacteristicUUID.toString())) {
-                    final byte[] data = characteristic.getValue();
-                    String s = new String(data);
+                    final int data = characteristic.getValue()[0]&0xFF;
+
                     TextView textCurrent_mA = findViewById(R.id.textCurrent_mA);
-                    textCurrent_mA.setText("Current : " + s + "mA");
+                    Log.w(TAG, "value read : " + data);
+                    textCurrent_mA.setText( getString(R.string.textCurrent_mA, data));
+                }
+                else if (uuid.equalsIgnoreCase(tensionCharacteristicUUID.toString())) {
+                    final int data = characteristic.getValue()[0]&0xFF;
+
+                    TextView textTension_V = findViewById(R.id.textTension_V);
+                    Log.w(TAG, "value read : " + data);
+                    textTension_V.setText( getString(R.string.textTension_V, data));
+                }
+                else if (uuid.equalsIgnoreCase(tempCharacteristicUUID.toString())) {
+                    final int data = characteristic.getValue()[0]&0xFF;
+
+                    TextView textTemp_C = findViewById(R.id.textTemp_C);
+                    Log.w(TAG, "value read : " + data);
+                    textTemp_C.setText( getString(R.string.textTemp_C, data));
+                }
+                else if (uuid.equalsIgnoreCase(powerCharacteristicUUID.toString())) {
+                    final int data = characteristic.getValue()[0]&0xFF;
+
+                    TextView textPower_dBm = findViewById(R.id.textPower_dBm);
+                    Log.w(TAG, "value read : " + data);
+                    textPower_dBm.setText( getString(R.string.textTemp_C, data));
+                }
+                else if (uuid.equalsIgnoreCase(freqCharacteristicUUID.toString())) {
+                    final int data = characteristic.getValue()[0]&0xFF;
+
+                    TextView textFreq_Hz = findViewById(R.id.textFreq_Hz);
+                    Log.w(TAG, "value read : " + data);
+                    textFreq_Hz.setText( getString(R.string.textFreq_Hz, data));
                 }
                 // Notify the main activity that new data is available
                 broadcastUpdate(ACTION_DATA_RECEIVED);
@@ -222,19 +245,21 @@ public class MainActivity extends AppCompatActivity {
         Intent myIntent = new Intent( Settings.ACTION_LOCATION_SOURCE_SETTINGS);
         startActivity(myIntent);
 
-        BluetoothAdapter bluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
-        if (bluetoothAdapter == null) {
+        BluetoothAdapter mBluetoothAdapter = BluetoothAdapter.getDefaultAdapter();
+        Log.w(TAG, "Adapter created : " + mBluetoothAdapter);
+
+        if (mBluetoothAdapter == null) {
             // Device doesn't support Bluetooth
             Log.w(TAG, "Device doesn't support Bluetooth");
         }
 
-        if (!bluetoothAdapter.isEnabled()) {
+        if (!mBluetoothAdapter.isEnabled()) {
             Log.i(TAG, "Ask to enable bluetooth");
             Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
-        mBLEScanner = bluetoothAdapter.getBluetoothLeScanner();
+        mBLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
 
         mBLEScanner.startScan(scanCallback);
         Log.i(TAG, "Scan started");
@@ -291,7 +316,6 @@ public class MainActivity extends AppCompatActivity {
     }
 
     public boolean writeCharacteristic(){
-
         //check mBluetoothGatt is available
         if (mBluetoothGatt == null) {
             //Log.e(TAG, "lost connection");
@@ -324,7 +348,31 @@ public class MainActivity extends AppCompatActivity {
         return status;
     }
 
+    /**
+     * This method is used to read the state of the current from the device
+     */
+    public boolean readCharacteristic(UUID CharacUUID) {
+        //check mBluetoothGatt is available
+        if (mBluetoothGatt == null) {
+            //Log.e(TAG, "lost connection");
+            return false;
+        }
 
+        BluetoothGattService mService = mBluetoothGatt.getService(UUID_BLE_INFO_SERVICE);
+        if (mService == null) {
+            Log.e(TAG, "service not found!");
+            return false;
+        }
+
+        BluetoothGattCharacteristic charac = mService.getCharacteristic(CharacUUID);
+        if (charac == null) {
+            Log.e(TAG, "char not found!");
+            return false;
+        }
+
+        boolean status = mBluetoothGatt.readCharacteristic(charac);
+        return status;
+    }
 
 
 //    public void updateTextView(textView, String toThis) {
@@ -332,7 +380,3 @@ public class MainActivity extends AppCompatActivity {
 //        textView.setText(toThis);
 //    }
 }
-
-
-
-

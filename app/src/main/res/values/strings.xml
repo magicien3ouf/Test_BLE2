@@ -1,6 +1,10 @@
 <resources>
     <string name="app_name">Test_BLE</string>
-    <string name="test_TextView_sentence">J’ai fait une application.</string>
-    <string name="send_button">SEND</string>
-    <string name="editText_msg">Message</string>
+    <string name="textCount">Elapsed time : %1$d ms</string>
+    <string name="textCurrent_mA">Current : %1$d mA</string>
+    <string name="textTension_V">Tension : %1$d V</string>
+    <string name="textTemp_C">Temperature : %1$d °C</string>
+    <string name="textPower_dBm">Power : %1$d dBm</string>
+    <string name="textFreq_Hz">Frequency : %1$d kHz</string>
+
 </resources>
