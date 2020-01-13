@@ -23,6 +23,8 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.provider.Settings;
 import android.util.Log;
+import android.view.View;
+import android.widget.Button;
 import android.widget.TextView;
 import android.widget.Toast;
 
@@ -92,43 +94,42 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             /* do what you need to do */
             count += 1;
-            writeCharacteristic(1 , 0x3C);
 
             TextView textCount = findViewById(R.id.textCount);
             textCount.setText(getString(R.string.textCount, count));
             readCharacteristic(currentCharacteristicUUID);
             try {
-                Thread.sleep(10);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             readCharacteristic(tensionCharacteristicUUID);
             try {
-                Thread.sleep(10);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             readCharacteristic(tempCharacteristicUUID);
             try {
-                Thread.sleep(10);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             readCharacteristic(powerCharacteristicUUID);
             try {
-                Thread.sleep(10);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             readCharacteristic(freqCharacteristicUUID);
             try {
-                Thread.sleep(10);
+                Thread.sleep(100);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
             /* and here comes the "trick" */
             //Log.i(TAG, "count : " + count);
-            handler.postDelayed(this, 100);
+            handler.postDelayed(this, 2000);
         }
     };
 
@@ -284,6 +285,19 @@ public class MainActivity extends AppCompatActivity {
             startActivityForResult(enableBtIntent, REQUEST_ENABLE_BT);
         }
 
+        final Button mCnote = findViewById(R.id.Cnote);
+        mCnote.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                writeCharacteristic(0 , 0x3C);
+            }
+        });
+
+        final Button mDnote = findViewById(R.id.Dnote);
+        mDnote.setOnClickListener(new View.OnClickListener() {
+            public void onClick(View v) {
+                writeCharacteristic(0 , 0x3E);
+            }
+        });
         mBLEScanner = mBluetoothAdapter.getBluetoothLeScanner();
 
         mBLEScanner.startScan(scanCallback);
@@ -372,16 +386,13 @@ public class MainActivity extends AppCompatActivity {
         int valueHex = 0xFFFFFF;      //byte we want to send according to MIDI protocol (just to test, to change afterwards) 0x903C7F
 
         if (start == 1){
-            valueHex = valueHex & startByte;
+            value[2] = (byte) (startByte & 0xFF);        //start: 0x90 or stop: 0x80
         }
         else{
-            valueHex = valueHex & stopByte;
+            value[2] = (byte) (stopByte & 0xFF);        //start: 0x90 or stop: 0x80
         }
-        valueHex = (valueHex >> 8) & note;
-
-        value[2] = (byte) ((valueHex >> 16) & 0xFF);        //start: 0x90 or stop: 0x80
-        value[3] = (byte) ((valueHex >> 8)  & 0xFF);        //note hex format
-        value[4] = (byte) (valueHex & 0xFF);                //velocity : does not change
+        value[3] = (byte) (note  & 0xFF);               //note hex format
+        value[4] = (byte) (0x7F & 0xFF);                //velocity : does not change
 
         charac.setValue(value);
         boolean status = mBluetoothGatt.writeCharacteristic(charac);
