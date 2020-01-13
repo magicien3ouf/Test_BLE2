@@ -7,6 +7,36 @@
     tools:context=".MainActivity">
 
 
+    <Button
+        android:id="@+id/Cnote"
+        android:layout_width="25dp"
+        android:layout_height="90dp"
+        android:layout_marginStart="-1dp"
+        android:layout_marginTop="-1dp"
+        android:layout_marginBottom="0.1dp"
+        android:minHeight="90dip"
+        android:text="@strings/Cnote"
+        app:layout_constraintBottom_toBottomOf="@id/textCount"
+        app:layout_constraintEnd_toEndOf="@id/Dnote"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
+
+    <Button
+        android:id="@+id/Dnote"
+        android:layout_width="25dp"
+        android:layout_height="90dp"
+        android:layout_marginStart="8dp"
+        android:layout_marginTop="1dp"
+        android:layout_marginBottom="1dp"
+        android:minHeight="90dip"
+        android:text="@strings/Dnote"
+        app:layout_constraintBottom_toBottomOf="@id/textCount"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.624"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintVertical_bias="0.501" />
+
     <TextView
         android:id="@+id/Connexion_infos"
         android:layout_width="wrap_content"

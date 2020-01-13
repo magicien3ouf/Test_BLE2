@@ -92,15 +92,40 @@ public class MainActivity extends AppCompatActivity {
         public void run() {
             /* do what you need to do */
             count += 1;
-            writeCharacteristic();
+            writeCharacteristic(1 , 0x3C);
 
             TextView textCount = findViewById(R.id.textCount);
             textCount.setText(getString(R.string.textCount, count));
             readCharacteristic(currentCharacteristicUUID);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             readCharacteristic(tensionCharacteristicUUID);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             readCharacteristic(tempCharacteristicUUID);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             readCharacteristic(powerCharacteristicUUID);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             readCharacteristic(freqCharacteristicUUID);
+            try {
+                Thread.sleep(10);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
             /* and here comes the "trick" */
             //Log.i(TAG, "count : " + count);
             handler.postDelayed(this, 100);
@@ -180,7 +205,7 @@ public class MainActivity extends AppCompatActivity {
 
                     TextView textPower_dBm = findViewById(R.id.textPower_dBm);
                     Log.w(TAG, "value read : " + data);
-                    textPower_dBm.setText( getString(R.string.textTemp_C, data));
+                    textPower_dBm.setText( getString(R.string.textPower_dBm, data));
                 }
                 else if (uuid.equalsIgnoreCase(freqCharacteristicUUID.toString())) {
                     final int data = characteristic.getValue()[0]&0xFF;
@@ -315,7 +340,10 @@ public class MainActivity extends AppCompatActivity {
                 + deviceHardwareAddress);
     }
 
-    public boolean writeCharacteristic(){
+    public boolean writeCharacteristic(int start, int note){
+        int startByte = 0x90;
+        int stopByte = 0x80;
+
         //check mBluetoothGatt is available
         if (mBluetoothGatt == null) {
             //Log.e(TAG, "lost connection");
@@ -334,17 +362,30 @@ public class MainActivity extends AppCompatActivity {
             return false;
         }
 
-        byte[] value = new byte[4];
-        int valueHex = 0xFFFFFFFF;      //byte we want to send according to MIDI protocol (just to test, to change afterwards)
-        value[0] = (byte) (valueHex & 0xFF);
-        value[1] = (byte) ((valueHex >> 8) & 0xFF);
-        value[2] = (byte) ((valueHex >> 16) & 0xFF);
-        value[3] = (byte) ((valueHex >> 24) & 0xFF);
-//        value[4] = (byte) ((valueHex >> 32) & 0xFF);
-//        value[5] = (byte) ((valueHex >> 40) & 0xFF);
+        byte[] value = new byte[5];
+        //we don't care about header and timestamps (the 4 MSB)
+        //status byte[2] | Data1 byte[2] | Data2 byte[2]
+        //status[23:20] : Message (turn on or off a note) | status[19:16] : Channel (here only 1 channel for simplicity)
+        //data1[15:8] music note
+        //data1[7:0] Velocity (here max Velocity for simplicity : 0x7f)
+
+        int valueHex = 0xFFFFFF;      //byte we want to send according to MIDI protocol (just to test, to change afterwards) 0x903C7F
+
+        if (start == 1){
+            valueHex = valueHex & startByte;
+        }
+        else{
+            valueHex = valueHex & stopByte;
+        }
+        valueHex = (valueHex >> 8) & note;
+
+        value[2] = (byte) ((valueHex >> 16) & 0xFF);        //start: 0x90 or stop: 0x80
+        value[3] = (byte) ((valueHex >> 8)  & 0xFF);        //note hex format
+        value[4] = (byte) (valueHex & 0xFF);                //velocity : does not change
 
         charac.setValue(value);
         boolean status = mBluetoothGatt.writeCharacteristic(charac);
+        Log.i(TAG, "characteristic " + valueHex + " written with status : " + status);
         return status;
     }
 

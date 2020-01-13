@@ -6,5 +6,7 @@
     <string name="textTemp_C">Temperature : %1$d °C</string>
     <string name="textPower_dBm">Power : %1$d dBm</string>
     <string name="textFreq_Hz">Frequency : %1$d kHz</string>
+    <string name="Cnote">C</string>
+    <string name="Dnote">D</string>
 
 </resources>
